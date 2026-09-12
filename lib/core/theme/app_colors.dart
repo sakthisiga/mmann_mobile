@@ -5,6 +5,7 @@ class AppColors {
   static const Color lightBackground = Color(0xFFF4F6FB);
   static const Color lightSurface = Color(0xFFFFFFFF);
   static const Color lightCardBorder = Color(0xFFE2E8F0);
+  static const Color lightBorder = Color(0xFFE2E8F0);
   static const Color lightTextPrimary = Color(0xFF0F172A);
   static const Color lightTextSecondary = Color(0xFF64748B);
   static const Color lightTextMuted = Color(0xFF94A3B8);
@@ -18,6 +19,7 @@ class AppColors {
   static const Color darkBackground = Color(0xFF0B0F19);
   static const Color darkSurface = Color(0xFF151D2A);
   static const Color darkCardBorder = Color(0xFF222D42);
+  static const Color darkBorder = Color(0xFF222D42);
   static const Color darkTextPrimary = Color(0xFFF8FAFC);
   static const Color darkTextSecondary = Color(0xFF8E9EB5);
   static const Color darkTextMuted = Color(0xFF4A5568);

@@ -98,6 +98,24 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
           _villageController.text = orgData['village'] as String;
         }
       }
+      if (me['farms'] != null && me['farms'] is List && (me['farms'] as List).isNotEmpty) {
+        final farms = me['farms'] as List;
+        final primary = farms.firstWhere(
+          (f) => f is Map && f['isPrimary'] == true,
+          orElse: () => farms.first,
+        ) as Map<String, dynamic>?;
+        if (primary != null) {
+          if (_districtController.text.isEmpty && primary['district'] != null) {
+            _districtController.text = primary['district'] as String;
+          }
+          if (_talukController.text.isEmpty && primary['taluk'] != null) {
+            _talukController.text = primary['taluk'] as String;
+          }
+          if (_villageController.text.isEmpty && primary['village'] != null) {
+            _villageController.text = primary['village'] as String;
+          }
+        }
+      }
     } catch (_) {}
   }
 

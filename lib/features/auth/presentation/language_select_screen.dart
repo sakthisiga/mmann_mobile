@@ -45,18 +45,29 @@ class LanguageSelectScreen extends ConsumerWidget {
               Row(
                 children: [
                   Container(
-                    width: 44,
-                    height: 44,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: isDark
-                          ? AppColors.darkPrimary.withValues(alpha: 0.2)
-                          : AppColors.lightPrimary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(14),
+                      color: isDark ? AppColors.darkSurface : AppColors.white,
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.darkBorder
+                            : AppColors.lightBorder,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: Center(
-                      child: Text(
-                        '🌾',
-                        style: TextStyle(fontSize: 24),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(13),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
