@@ -46,11 +46,20 @@ class FarmNotifier extends StateNotifier<FarmState> {
         remoteFarms.map((f) => f.toSqlite()).toList(),
       );
 
+      final currentActiveId = state.activeFarm?.id;
       final active = remoteFarms.isNotEmpty
-          ? remoteFarms.firstWhere(
-              (f) => f.isPrimary,
-              orElse: () => remoteFarms.first,
-            )
+          ? (currentActiveId != null
+              ? remoteFarms.firstWhere(
+                  (f) => f.id == currentActiveId,
+                  orElse: () => remoteFarms.firstWhere(
+                    (f) => f.isPrimary,
+                    orElse: () => remoteFarms.first,
+                  ),
+                )
+              : remoteFarms.firstWhere(
+                  (f) => f.isPrimary,
+                  orElse: () => remoteFarms.first,
+                ))
           : null;
 
       state = state.copyWith(
@@ -190,6 +199,54 @@ class FarmNotifier extends StateNotifier<FarmState> {
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'An unexpected error occurred updating farm.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteFarm(String id) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      await _apiService.deleteFarm(id);
+
+      var remaining = state.farmsList.where((f) => f.id != id).toList();
+      if (remaining.isNotEmpty && !remaining.any((f) => f.isPrimary)) {
+        remaining[0] = remaining[0].copyWith(isPrimary: true);
+      }
+
+      await DatabaseService.cacheFarms(
+        remaining.map((f) => f.toSqlite()).toList(),
+      );
+
+      final nextActive = state.activeFarm?.id == id
+          ? (remaining.isNotEmpty
+              ? remaining.firstWhere(
+                  (f) => f.isPrimary,
+                  orElse: () => remaining.first,
+                )
+              : null)
+          : state.activeFarm;
+
+      state = state.copyWith(
+        farmsList: remaining,
+        activeFarm: nextActive,
+        clearActiveFarm: nextActive == null,
+        isLoading: false,
+      );
+      return true;
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map<String, dynamic>
+          ? (e.response?.data['detail'] as String? ?? e.message)
+          : e.message;
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: detail ?? 'Failed to delete farm.',
+      );
+      return false;
+    } catch (_) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'An unexpected error occurred deleting farm.',
       );
       return false;
     }

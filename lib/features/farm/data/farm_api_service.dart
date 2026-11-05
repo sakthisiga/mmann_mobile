@@ -119,4 +119,8 @@ class FarmApiService {
 
     return Farm.fromJson(response.data as Map<String, dynamic>);
   }
+
+  Future<void> deleteFarm(String id) async {
+    await _dio.delete('${ApiEndpoints.farms}/$id');
+  }
 }

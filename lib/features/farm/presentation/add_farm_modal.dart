@@ -6,6 +6,7 @@ import '../../../core/storage/database_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../auth/data/auth_api_service.dart';
 import '../../auth/state/auth_notifier.dart';
+import '../../plot/state/plot_notifier.dart';
 import '../data/farm_model.dart';
 import '../state/farm_notifier.dart';
 
@@ -37,7 +38,6 @@ class _AddFarmModalState extends ConsumerState<AddFarmModal> {
   final _villageController = TextEditingController();
   final _districtController = TextEditingController();
   final _pincodeController = TextEditingController();
-  final _areaController = TextEditingController();
 
   String _selectedState = 'TN';
   String _selectedUnit = 'acre';
@@ -52,11 +52,6 @@ class _AddFarmModalState extends ConsumerState<AddFarmModal> {
       _villageController.text = f.village ?? '';
       _districtController.text = f.district ?? '';
       _pincodeController.text = f.pincode ?? '';
-      _areaController.text = f.enteredArea != null
-          ? (f.enteredArea! % 1 == 0
-              ? f.enteredArea!.toInt().toString()
-              : f.enteredArea!.toString())
-          : '';
       _selectedState = f.stateCode ?? 'TN';
       if (areaUnits.contains(f.enteredUnit)) {
         _selectedUnit = f.enteredUnit;
@@ -140,7 +135,6 @@ class _AddFarmModalState extends ConsumerState<AddFarmModal> {
     _villageController.dispose();
     _districtController.dispose();
     _pincodeController.dispose();
-    _areaController.dispose();
     super.dispose();
   }
 
@@ -149,7 +143,6 @@ class _AddFarmModalState extends ConsumerState<AddFarmModal> {
     setState(() => _isSubmitting = true);
 
     final isEdit = widget.farmToEdit != null;
-    final area = double.tryParse(_areaController.text.trim());
     bool success;
 
     if (isEdit) {
@@ -160,7 +153,6 @@ class _AddFarmModalState extends ConsumerState<AddFarmModal> {
             district: _districtController.text.trim(),
             stateCode: _selectedState,
             pincode: _pincodeController.text.trim(),
-            enteredArea: area,
             enteredUnit: _selectedUnit,
             isPrimary: widget.farmToEdit!.isPrimary,
           );
@@ -174,18 +166,95 @@ class _AddFarmModalState extends ConsumerState<AddFarmModal> {
         );
       }
     } else {
+      final isFirst = ref.read(farmNotifierProvider).farmsList.isEmpty;
       success = await ref.read(farmNotifierProvider.notifier).createFarm(
             name: _nameController.text.trim(),
-            village: _villageController.text.trim(),
-            district: _districtController.text.trim(),
+            village: _villageController.text.trim().isEmpty ? null : _villageController.text.trim(),
+            district: _districtController.text.trim().isEmpty ? null : _districtController.text.trim(),
             stateCode: _selectedState,
-            pincode: _pincodeController.text.trim(),
-            enteredArea: area,
+            pincode: _pincodeController.text.trim().isEmpty ? null : _pincodeController.text.trim(),
             enteredUnit: _selectedUnit,
-            isPrimary: false,
+            isPrimary: isFirst,
           );
     }
 
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+      if (success) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
+  Future<void> _handleDelete(AppLocalizations loc) async {
+    final farm = widget.farmToEdit;
+    if (farm == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                color: AppColors.lightAccentCoral),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                loc.tr('confirm_delete_farm_title'),
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              farm.name,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.lightAccentCoral,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              loc.tr('confirm_delete_farm_desc'),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: Text(loc.tr('cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.lightAccentCoral,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: Text(
+              loc.tr('confirm_delete_btn'),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    setState(() => _isSubmitting = true);
+    final success =
+        await ref.read(farmNotifierProvider.notifier).deleteFarm(farm.id);
+    await ref.read(plotNotifierProvider.notifier).loadPlots();
     if (mounted) {
       setState(() => _isSubmitting = false);
       if (success) {
@@ -323,30 +392,100 @@ class _AddFarmModalState extends ConsumerState<AddFarmModal> {
               Row(
                 children: [
                   Expanded(
-                    flex: 6,
-                    child: TextFormField(
-                      controller: _areaController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(labelText: loc.tr('entered_area')),
+                    flex: 5,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _selectedState,
+                      decoration: InputDecoration(
+                        labelText: loc.tr('state'),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'TN', child: Text('TN (Tamil Nadu)')),
+                        DropdownMenuItem(value: 'AP', child: Text('AP (Andhra Pradesh)')),
+                        DropdownMenuItem(value: 'TG', child: Text('TG (Telangana)')),
+                        DropdownMenuItem(value: 'KA', child: Text('KA (Karnataka)')),
+                        DropdownMenuItem(value: 'KL', child: Text('KL (Kerala)')),
+                        DropdownMenuItem(value: 'PY', child: Text('PY (Puducherry)')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedState = val);
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    flex: 4,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _selectedUnit,
-                      items: areaUnits.map((u) {
-                        return DropdownMenuItem(
-                          value: u,
-                          child: Text(loc.translateUnit(u)),
-                        );
-                      }).toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _selectedUnit = val);
-                      },
+                    flex: 5,
+                    child: TextFormField(
+                      controller: _pincodeController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: loc.tr('pincode'),
+                        hintText: '638656',
+                      ),
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedUnit,
+                decoration: InputDecoration(
+                  labelText: loc.tr('entered_unit'),
+                  prefixIcon: const Icon(Icons.straighten_rounded),
+                ),
+                items: areaUnits.map((u) {
+                  return DropdownMenuItem(
+                    value: u,
+                    child: Text(loc.translateUnit(u)),
+                  );
+                }).toList(),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedUnit = val);
+                },
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (isDark
+                          ? AppColors.darkAccentMint
+                          : AppColors.lightPrimary)
+                      .withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: (isDark
+                            ? AppColors.darkAccentMint
+                            : AppColors.lightPrimary)
+                        .withValues(alpha: 0.30),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.calculate_outlined,
+                      size: 18,
+                      color: isDark
+                          ? AppColors.darkAccentMint
+                          : AppColors.lightPrimary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.farmToEdit != null
+                            ? '${loc.tr('entered_area')}: ${widget.farmToEdit!.enteredArea ?? 0} ${loc.translateUnit(widget.farmToEdit!.enteredUnit)} • ${loc.tr('farm_area_auto_calc_note')}'
+                            : loc.tr('farm_area_auto_calc_note'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? AppColors.darkTextPrimary
+                              : AppColors.lightTextPrimary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -364,6 +503,37 @@ class _AddFarmModalState extends ConsumerState<AddFarmModal> {
                         ? loc.tr('save_changes')
                         : loc.tr('add_new_farm')),
               ),
+              if (widget.farmToEdit != null) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isSubmitting ? null : () => _handleDelete(loc),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 19,
+                      color: AppColors.lightAccentCoral,
+                    ),
+                    label: Text(
+                      loc.tr('delete_farm'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.lightAccentCoral,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      side: BorderSide(
+                        color: AppColors.lightAccentCoral.withValues(alpha: 0.6),
+                        width: 1.5,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -21,4 +21,17 @@ class ApiEndpoints {
   static const String me = '/v1/auth/me';
   static const String updateProfile = '/v1/auth/profile';
   static const String farms = '/v1/farms';
+  static const String plots = '/v1/plots';
+  static const String landPortals = '/v1/plots/land-portals';
+  static const String documents = '/v1/documents';
+
+  // Super Admin Endpoints (M1 Identity, Org & Access)
+  static const String adminLogin = '/v1/admin/auth/login';
+  static const String adminDashboardStats = '/v1/admin/dashboard/stats';
+  static const String adminOrgs = '/v1/admin/orgs';
+  static const String adminUsers = '/v1/admin/users';
+  static const String adminMemberships = '/v1/admin/memberships';
+  static const String adminFarms = '/v1/admin/farms';
+  static const String adminSessions = '/v1/admin/sessions';
+  static const String adminConsents = '/v1/admin/consents';
 }

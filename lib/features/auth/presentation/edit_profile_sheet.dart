@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/india_flag_icon.dart';
 import '../data/auth_api_service.dart';
 import '../data/auth_models.dart';
 import '../state/auth_notifier.dart';
@@ -412,12 +413,19 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
                     decoration: InputDecoration(
                       prefixIcon: const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(
-                          '🇮🇳 +91',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IndiaFlagIcon(width: 20, height: 13),
+                            SizedBox(width: 6),
+                            Text(
+                              '+91',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       prefixIconConstraints: const BoxConstraints(minWidth: 0),

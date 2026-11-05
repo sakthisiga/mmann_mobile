@@ -9,6 +9,10 @@ import 'add_farm_modal.dart';
 class FarmSwitcherWidget extends ConsumerWidget {
   const FarmSwitcherWidget({super.key});
 
+  static void showSheet(BuildContext context, WidgetRef ref) {
+    const FarmSwitcherWidget()._showSwitcherModal(context, ref);
+  }
+
   void _showSwitcherModal(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final currentLocale = ref.read(localeProvider);
@@ -129,6 +133,15 @@ class FarmSwitcherWidget extends ConsumerWidget {
                           itemBuilder: (context, index) {
                           final farm = farms[index];
                           final isSelected = activeFarm?.id == farm.id;
+                          const palette = <Color>[
+                            Color(0xFF059669), // Emerald Paddy
+                            Color(0xFF4F46E5), // Indigo River
+                            Color(0xFFD97706), // Amber Harvest
+                            Color(0xFFE11D48), // Rose Coral
+                            Color(0xFF7C3AED), // Violet Millet
+                            Color(0xFF0891B2), // Cyan Canal
+                          ];
+                          final cardAccent = palette[index % palette.length];
 
                           return InkWell(
                             onTap: () {
@@ -141,23 +154,24 @@ class FarmSwitcherWidget extends ConsumerWidget {
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: isDark
-                                    ? (isSelected
-                                        ? AppColors.darkPillBackground
-                                        : AppColors.darkSurface)
-                                    : (isSelected
-                                        ? AppColors.lightPillBackground
-                                        : AppColors.lightBackground),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: isDark
+                                      ? [
+                                          cardAccent.withValues(alpha: isSelected ? 0.24 : 0.14),
+                                          AppColors.darkSurface,
+                                        ]
+                                      : [
+                                          cardAccent.withValues(alpha: isSelected ? 0.16 : 0.08),
+                                          AppColors.white,
+                                        ],
+                                ),
                                 borderRadius: BorderRadius.circular(18),
                                 border: Border.all(
-                                  color: isSelected
-                                      ? (isDark
-                                          ? AppColors.darkAccentCoral
-                                          : AppColors.lightPrimary)
-                                      : (isDark
-                                          ? AppColors.darkCardBorder
-                                          : AppColors.lightCardBorder),
-                                  width: isSelected ? 2 : 1,
+                                  color: cardAccent.withValues(
+                                      alpha: isSelected ? 0.85 : 0.35),
+                                  width: isSelected ? 2 : 1.2,
                                 ),
                               ),
                               child: Row(
@@ -166,19 +180,17 @@ class FarmSwitcherWidget extends ConsumerWidget {
                                     width: 40,
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? (isDark
-                                              ? AppColors.darkAccentCoral
-                                              : AppColors.lightPrimary)
-                                          : (isDark
-                                              ? AppColors.darkCardBorder
-                                              : AppColors.lightCardBorder),
+                                      color: cardAccent.withValues(
+                                          alpha: isSelected ? 0.9 : 0.18),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Center(
-                                      child: Text(
-                                        '🌾',
-                                        style: TextStyle(fontSize: 20),
+                                      child: Icon(
+                                        Icons.agriculture_rounded,
+                                        size: 22,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : cardAccent,
                                       ),
                                     ),
                                   ),
@@ -243,22 +255,47 @@ class FarmSwitcherWidget extends ConsumerWidget {
                                       ],
                                     ),
                                   ),
-                                  IconButton(
-                                    icon: Icon(
-                                      Icons.edit_outlined,
-                                      size: 19,
-                                      color: isDark
-                                          ? AppColors.darkTextSecondary
-                                          : AppColors.lightTextSecondary,
-                                    ),
-                                    tooltip: loc.tr('edit_farm'),
-                                    onPressed: () {
+                                  InkWell(
+                                    onTap: () {
                                       Navigator.of(context).pop();
                                       AddFarmModal.show(context, farmToEdit: farm);
                                     },
-                                    visualDensity: VisualDensity.compact,
-                                    padding: const EdgeInsets.all(4),
-                                    constraints: const BoxConstraints(),
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: cardAccent.withValues(alpha: 0.14),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(
+                                        Icons.edit_outlined,
+                                        size: 18,
+                                        color: cardAccent,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  InkWell(
+                                    onTap: () => _confirmDeleteFarm(
+                                        context, ref, farm.id, farm.name, loc),
+                                    borderRadius: BorderRadius.circular(10),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.lightAccentCoral
+                                            .withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: AppColors.lightAccentCoral
+                                              .withValues(alpha: 0.4),
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.delete_outline_rounded,
+                                        size: 18,
+                                        color: AppColors.lightAccentCoral,
+                                      ),
+                                    ),
                                   ),
                                   if (isSelected) ...[
                                     const SizedBox(width: 8),
@@ -308,6 +345,78 @@ class FarmSwitcherWidget extends ConsumerWidget {
         );
       },
     );
+  }
+
+  Future<void> _confirmDeleteFarm(
+    BuildContext context,
+    WidgetRef ref,
+    String farmId,
+    String farmName,
+    AppLocalizations loc,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                color: AppColors.lightAccentCoral),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                loc.tr('confirm_delete_farm_title'),
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              farmName,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.lightAccentCoral,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              loc.tr('confirm_delete_farm_desc'),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: Text(loc.tr('cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.lightAccentCoral,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: Text(
+              loc.tr('confirm_delete_btn'),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(farmNotifierProvider.notifier).deleteFarm(farmId);
+    }
   }
 
   @override

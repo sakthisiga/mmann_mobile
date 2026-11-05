@@ -3,9 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_provider.dart';
 import '../../auth/presentation/edit_profile_sheet.dart';
 import '../../auth/presentation/phone_login_screen.dart';
 import '../../auth/state/auth_notifier.dart';
+import '../../document/presentation/add_document_modal.dart';
+import '../../document/presentation/documents_screen.dart';
+import '../../document/state/document_notifier.dart';
+import '../../plot/presentation/add_plot_modal.dart';
+import '../../plot/presentation/plots_screen.dart';
+import '../../plot/state/plot_notifier.dart';
 import '../state/farm_notifier.dart';
 import 'add_farm_modal.dart';
 import 'farm_switcher_widget.dart';
@@ -25,6 +32,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(farmNotifierProvider.notifier).loadFarms();
+      ref.read(plotNotifierProvider.notifier).loadPlots();
+      ref.read(documentNotifierProvider.notifier).loadDocuments();
     });
   }
 
@@ -32,7 +41,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
     final farmState = ref.watch(farmNotifierProvider);
+    final plotState = ref.watch(plotNotifierProvider);
     final activeFarm = farmState.activeFarm;
+    final activeFarmPlots = plotState.plotsForFarm(activeFarm?.id);
     final currentLocale = ref.watch(localeProvider);
     final loc = AppLocalizations(currentLocale);
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -64,9 +75,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           Container(
                             width: 38,
                             height: 38,
+                            padding: const EdgeInsets.all(3),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(10),
-                              color: isDark ? AppColors.darkSurface : AppColors.white,
+                              color: AppColors.white,
                               border: Border.all(
                                 color: isDark
                                     ? AppColors.darkBorder
@@ -81,7 +93,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               ],
                             ),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(9),
+                              borderRadius: BorderRadius.circular(7),
                               child: Image.asset(
                                 'assets/images/logo.png',
                                 fit: BoxFit.contain,
@@ -92,39 +104,75 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                           const FarmSwitcherWidget(),
                         ],
                       ),
-                      InkWell(
-                        onTap: () => _showProfileMenu(context),
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: isDark
-                                ? AppColors.darkPrimary.withValues(alpha: 0.25)
-                                : AppColors.lightPrimary.withValues(alpha: 0.12),
-                            border: Border.all(
-                              color: isDark
-                                  ? AppColors.darkPrimary
-                                  : AppColors.lightPrimary,
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              farmerName.isNotEmpty
-                                  ? farmerName[0].toUpperCase()
-                                  : 'F',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          InkWell(
+                            onTap: () => ref
+                                .read(themeModeProvider.notifier)
+                                .toggleDarkLight(isDark),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
                                 color: isDark
-                                    ? AppColors.darkPrimary
-                                    : AppColors.lightPrimary,
+                                    ? AppColors.darkSurface
+                                    : AppColors.white,
+                                border: Border.all(
+                                  color: isDark
+                                      ? AppColors.darkBorder
+                                      : AppColors.lightBorder,
+                                ),
+                              ),
+                              child: Icon(
+                                isDark
+                                    ? Icons.light_mode_rounded
+                                    : Icons.dark_mode_rounded,
+                                size: 19,
+                                color: isDark
+                                    ? const Color(0xFFFBBF24)
+                                    : const Color(0xFF475569),
                               ),
                             ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          InkWell(
+                            onTap: () => _showProfileMenu(context),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: isDark
+                                    ? AppColors.darkPrimary.withValues(alpha: 0.25)
+                                    : AppColors.lightPrimary.withValues(alpha: 0.12),
+                                border: Border.all(
+                                  color: isDark
+                                      ? AppColors.darkPrimary
+                                      : AppColors.lightPrimary,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  farmerName.isNotEmpty
+                                      ? farmerName[0].toUpperCase()
+                                      : 'F',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 16,
+                                    color: isDark
+                                        ? AppColors.darkPrimary
+                                        : AppColors.lightPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -156,77 +204,107 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                               : AppColors.lightTextPrimary,
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? AppColors.darkSurface
-                              : AppColors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
+                      InkWell(
+                        onTap: () => FarmSwitcherWidget.showSheet(context, ref),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
                             color: isDark
-                                ? AppColors.darkCardBorder
-                                : AppColors.lightCardBorder,
+                                ? AppColors.darkSurface
+                                : AppColors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.darkCardBorder
+                                  : AppColors.lightCardBorder,
+                            ),
                           ),
+                          child: const Icon(Icons.tune_rounded, size: 18),
                         ),
-                        child: const Icon(Icons.tune_rounded, size: 18),
                       ),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  // 3 Stat Metric Cards (Matching design image cards)
+                  // 3 Stat Metric Cards (Multi-color themed)
                   Row(
                     children: [
-                      // Stat 1: Total Farms
+                      // Stat 1: Total Farms (Emerald - tappable to open Farm Switcher)
                       Expanded(
-                        child: _buildMetricCard(
-                          context,
-                          value: '${farmState.farmsList.length}',
-                          label: loc.tr('active_farms'),
-                          accentColor: isDark
-                              ? AppColors.darkTextPrimary
-                              : AppColors.lightTextPrimary,
-                          isDark: isDark,
+                        child: InkWell(
+                          onTap: () => FarmSwitcherWidget.showSheet(context, ref),
+                          borderRadius: BorderRadius.circular(20),
+                          child: _buildMetricCard(
+                            context,
+                            value: '${farmState.farmsList.length}',
+                            label: loc.tr('active_farms'),
+                            accentColor: const Color(0xFF059669),
+                            isDark: isDark,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
-                      // Stat 2: Total Cultivable Area
+                      // Stat 2: Total Cultivable Area (Indigo)
                       Expanded(
                         child: _buildMetricCard(
                           context,
                           value: farmState.totalCultivableAcres.toStringAsFixed(1),
                           label: loc.tr('acres_total'),
-                          accentColor: isDark
-                              ? AppColors.darkPrimary
-                              : AppColors.lightPrimary,
+                          accentColor: const Color(0xFF4F46E5),
                           isDark: isDark,
                         ),
                       ),
                       const SizedBox(width: 10),
-                      // Stat 3: Active Plots
+                      // Stat 3: Active Plots (Amber/Orange)
                       Expanded(
-                        child: _buildMetricCard(
-                          context,
-                          value: '0',
-                          label: loc.tr('active_plots'),
-                          accentColor: AppColors.lightAccentMint,
-                          isDark: isDark,
+                        child: InkWell(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PlotsScreen(),
+                            ),
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          child: _buildMetricCard(
+                            context,
+                            value: '${activeFarmPlots.length}',
+                            label: loc.tr('active_plots'),
+                            accentColor: const Color(0xFFD97706),
+                            isDark: isDark,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 28),
-                  // Active Farm Card (Matching funnel/pipeline card style)
-                  Text(
-                    loc.tr('active_farms_header'),
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                      color: isDark
-                          ? AppColors.darkTextSecondary
-                          : AppColors.lightTextSecondary,
-                    ),
+                  // Active Farm Card Header with Add Farm Action
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        loc.tr('active_farms_header'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.lightTextSecondary,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => AddFarmModal.show(context),
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: Text(
+                          loc.tr('add_new_farm'),
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          visualDensity: VisualDensity.compact,
+                          foregroundColor: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   _buildActiveFarmHoldingCard(
@@ -251,10 +329,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildQuickActionButton(
-                        icon: Icons.edit_note_rounded,
-                        label: loc.tr('log_activity'),
-                        color: AppColors.lightPrimary,
+                        icon: Icons.description_rounded,
+                        label: loc.tr('documents'),
+                        color: const Color(0xFFD97706),
                         isDark: isDark,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const DocumentsScreen(),
+                          ),
+                        ),
                       ),
                       _buildQuickActionButton(
                         icon: Icons.currency_rupee_rounded,
@@ -300,20 +383,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required bool isDark,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.white,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  accentColor.withValues(alpha: 0.18),
+                  AppColors.darkSurface,
+                ]
+              : [
+                  accentColor.withValues(alpha: 0.12),
+                  AppColors.white,
+                ],
+        ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
-          width: 1,
+          color: accentColor.withValues(alpha: isDark ? 0.35 : 0.3),
+          width: 1.2,
         ),
         boxShadow: !isDark
             ? [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: accentColor.withValues(alpha: 0.08),
                   blurRadius: 14,
-                  offset: const Offset(0, 3),
+                  offset: const Offset(0, 4),
                 )
               ]
             : null,
@@ -321,26 +416,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-              color: accentColor,
-            ),
+          Container(
+            height: 4,
+            width: double.infinity,
+            color: accentColor,
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isDark
-                  ? AppColors.darkTextSecondary
-                  : AppColors.lightTextSecondary,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: accentColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.lightTextSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -455,20 +563,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         : '0 $unit';
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.white,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? [
+                  const Color(0xFF4F46E5).withValues(alpha: 0.16),
+                  AppColors.darkSurface,
+                  const Color(0xFF059669).withValues(alpha: 0.12),
+                ]
+              : [
+                  const Color(0xFFEEF2FF),
+                  AppColors.white,
+                  const Color(0xFFECFDF5),
+                ],
+        ),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
-          width: 1,
+          color: isDark
+              ? const Color(0xFF6366F1).withValues(alpha: 0.4)
+              : const Color(0xFFA5B4FC),
+          width: 1.4,
         ),
         boxShadow: !isDark
             ? [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
+                  color: const Color(0xFF4F46E5).withValues(alpha: 0.08),
                   blurRadius: 18,
-                  offset: const Offset(0, 4),
+                  offset: const Offset(0, 6),
                 )
               ]
             : null,
@@ -476,16 +600,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            height: 5,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF4F46E5),
+                  Color(0xFF059669),
+                  Color(0xFF14B8A6),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      name,
-                      style: TextStyle(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: isDark
@@ -517,6 +659,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                     tooltip: loc.tr('edit_farm'),
                     onPressed: () => AddFarmModal.show(context, farmToEdit: farm),
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints(),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 19,
+                      color: AppColors.lightAccentCoral,
+                    ),
+                    tooltip: loc.tr('delete_farm'),
+                    onPressed: () => _confirmDeleteFarm(context, farm.id, farm.name, loc),
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(6),
                     constraints: const BoxConstraints(),
@@ -561,38 +716,111 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 18),
-          // Plot Status Box (Authentic zero plots state)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.darkBackground
-                  : AppColors.lightPillBackground,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
-                width: 1,
-              ),
+          // Plot Status Box (Tappable to open PlotsScreen / AddPlotModal)
+          InkWell(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PlotsScreen()),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.grid_view_rounded,
-                  size: 18,
-                  color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.darkBackground
+                    : AppColors.lightPillBackground,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                  width: 1,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '${loc.tr('no_plots_configured')} • ${loc.tr('add_plot_hint')}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.grid_view_rounded,
+                    size: 18,
+                    color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      ref.watch(plotNotifierProvider).plotsForFarm(farm.id).isEmpty
+                          ? '${loc.tr('no_plots_configured')} • ${loc.tr('add_plot_hint')}'
+                          : '${ref.watch(plotNotifierProvider).plotsForFarm(farm.id).length} ${loc.tr('plots_configured')} • ${loc.tr('manage_plots')}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
                     ),
                   ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: Icon(
+                      Icons.add_circle_rounded,
+                      size: 20,
+                      color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                    ),
+                    tooltip: loc.tr('add_plot'),
+                    onPressed: () => AddPlotModal.show(context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Document Vault Box (Tappable to open DocumentsScreen / AddDocumentModal)
+          InkWell(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const DocumentsScreen()),
+            ),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.darkBackground
+                    : AppColors.lightPillBackground,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                  width: 1,
                 ),
-              ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.description_rounded,
+                    size: 18,
+                    color: Color(0xFF059669),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      '${ref.watch(documentNotifierProvider).documentsForFarm(farm.id).length} ${loc.tr('documents')} • ${loc.tr('manage_documents')}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(
+                      Icons.add_circle_rounded,
+                      size: 20,
+                      color: Color(0xFF059669),
+                    ),
+                    tooltip: loc.tr('add_document'),
+                    onPressed: () => AddDocumentModal.show(context),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -611,7 +839,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    '0 ${loc.tr('plots_configured')}',
+                    '${ref.watch(plotNotifierProvider).plotsForFarm(farm.id).length} ${loc.tr('plots_configured')}',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -644,9 +872,148 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => AddFarmModal.show(context, farmToEdit: farm),
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                  ),
+                  label: Text(
+                    loc.tr('edit_farm'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    side: BorderSide(
+                      color: (isDark ? AppColors.darkPrimary : AppColors.lightPrimary)
+                          .withValues(alpha: 0.4),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      _confirmDeleteFarm(context, farm.id, farm.name, loc),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    size: 16,
+                    color: AppColors.lightAccentCoral,
+                  ),
+                  label: Text(
+                    loc.tr('delete_farm'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.lightAccentCoral,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    side: BorderSide(
+                      color: AppColors.lightAccentCoral.withValues(alpha: 0.5),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+              ],
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDeleteFarm(
+    BuildContext context,
+    String farmId,
+    String farmName,
+    AppLocalizations loc,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded,
+                color: AppColors.lightAccentCoral),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                loc.tr('confirm_delete_farm_title'),
+                style:
+                    const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              farmName,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.lightAccentCoral,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              loc.tr('confirm_delete_farm_desc'),
+              style: const TextStyle(fontSize: 13),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(false),
+            child: Text(loc.tr('cancel')),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.lightAccentCoral,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: () => Navigator.of(dialogCtx).pop(true),
+            child: Text(
+              loc.tr('confirm_delete_btn'),
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(farmNotifierProvider.notifier).deleteFarm(farmId);
+      await ref.read(plotNotifierProvider.notifier).loadPlots();
+    }
   }
 
   Widget _buildQuickActionButton({
@@ -654,35 +1021,40 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required String label,
     required Color color,
     required bool isDark,
+    VoidCallback? onTap,
   }) {
-    return Column(
-      children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: isDark
-                ? color.withValues(alpha: 0.18)
-                : color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: color.withValues(alpha: 0.3),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Column(
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? color.withValues(alpha: 0.18)
+                  : color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: color.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isDark
+                  ? AppColors.darkTextPrimary
+                  : AppColors.lightTextPrimary,
             ),
           ),
-          child: Icon(icon, color: color, size: 24),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: isDark
-                ? AppColors.darkTextPrimary
-                : AppColors.lightTextPrimary,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -981,6 +1353,145 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     const Divider(height: 1),
                     const SizedBox(height: 12),
 
+                    // Theme / Appearance Selection
+                    Row(
+                      children: [
+                        Icon(
+                          isDark
+                              ? Icons.dark_mode_rounded
+                              : Icons.light_mode_rounded,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          loc.tr('theme_appearance'),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              ref
+                                  .read(themeModeProvider.notifier)
+                                  .setThemeMode(ThemeMode.light);
+                              setModalState(() {});
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: !isDark
+                                    ? AppColors.lightPrimary.withValues(alpha: 0.12)
+                                    : AppColors.darkBackground,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: !isDark
+                                      ? AppColors.lightPrimary
+                                      : Colors.transparent,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.light_mode_rounded,
+                                    size: 16,
+                                    color: !isDark
+                                        ? AppColors.lightPrimary
+                                        : AppColors.darkTextSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      loc.tr('light_mode'),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: !isDark
+                                            ? AppColors.lightPrimary
+                                            : AppColors.darkTextSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () {
+                              ref
+                                  .read(themeModeProvider.notifier)
+                                  .setThemeMode(ThemeMode.dark);
+                              setModalState(() {});
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.darkPrimary.withValues(alpha: 0.25)
+                                    : Colors.grey[100],
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isDark
+                                      ? AppColors.darkPrimary
+                                      : Colors.transparent,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.dark_mode_rounded,
+                                    size: 16,
+                                    color: isDark
+                                        ? AppColors.darkPrimary
+                                        : AppColors.lightTextSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      loc.tr('dark_mode'),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: isDark
+                                            ? AppColors.darkPrimary
+                                            : AppColors.lightTextSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+
                     // Language Selection
                     Row(
                       children: [
@@ -1131,8 +1642,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                             ),
                           ),
                           const SizedBox(width: 6),
+                          Image.asset(
+                            isDark
+                                ? 'assets/images/wordmark-light.png'
+                                : 'assets/images/wordmark-dark.png',
+                            height: 10,
+                            fit: BoxFit.contain,
+                          ),
+                          const SizedBox(width: 6),
                           Text(
-                            'MARUTHAMANN · மருதமண்',
+                            '· மருதமண்',
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,

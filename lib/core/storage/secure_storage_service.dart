@@ -10,6 +10,7 @@ class SecureStorageService {
 
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
+  static const String _adminTokenKey = 'admin_token';
   static const String _userIdKey = 'user_id';
   static const String _orgIdKey = 'org_id';
 
@@ -26,6 +27,36 @@ class SecureStorageService {
       await prefs.setString(_accessTokenKey, accessToken);
       await prefs.setString(_refreshTokenKey, refreshToken);
     }
+  }
+
+  Future<void> saveAdminToken(String token) async {
+    try {
+      await _storage.write(key: _adminTokenKey, value: token);
+    } catch (e) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_adminTokenKey, token);
+    }
+  }
+
+  Future<String?> getAdminToken() async {
+    try {
+      final val = await _storage.read(key: _adminTokenKey);
+      if (val != null) return val;
+    } catch (e) {
+      debugPrint('SecureStorage read failed, falling back to SharedPreferences: $e');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_adminTokenKey);
+  }
+
+  Future<void> clearAdminToken() async {
+    try {
+      await _storage.delete(key: _adminTokenKey);
+    } catch (e) {
+      debugPrint('SecureStorage delete failed: $e');
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_adminTokenKey);
   }
 
   Future<String?> getAccessToken() async {
@@ -50,12 +81,21 @@ class SecureStorageService {
     return prefs.getString(_refreshTokenKey);
   }
 
-  Future<void> saveOrgContext({required String userId, required String orgId}) async {
+  Future<void> saveOrgContext({
+    required String userId,
+    required String orgId,
+  }) async {
+    await saveUserContext(userId: userId, orgId: orgId);
+  }
+
+  Future<void> saveUserContext({
+    required String userId,
+    required String orgId,
+  }) async {
     try {
       await _storage.write(key: _userIdKey, value: userId);
       await _storage.write(key: _orgIdKey, value: orgId);
     } catch (e) {
-      debugPrint('SecureStorage saveOrgContext failed, falling back to SharedPreferences: $e');
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_userIdKey, userId);
       await prefs.setString(_orgIdKey, orgId);
@@ -66,7 +106,9 @@ class SecureStorageService {
     try {
       final val = await _storage.read(key: _userIdKey);
       if (val != null) return val;
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('SecureStorage read failed: $e');
+    }
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_userIdKey);
   }
@@ -75,7 +117,9 @@ class SecureStorageService {
     try {
       final val = await _storage.read(key: _orgIdKey);
       if (val != null) return val;
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('SecureStorage read failed: $e');
+    }
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_orgIdKey);
   }
@@ -83,12 +127,14 @@ class SecureStorageService {
   Future<void> clearAll() async {
     try {
       await _storage.deleteAll();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('SecureStorage deleteAll failed: $e');
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_accessTokenKey);
     await prefs.remove(_refreshTokenKey);
+    await prefs.remove(_adminTokenKey);
     await prefs.remove(_userIdKey);
     await prefs.remove(_orgIdKey);
   }
 }
-

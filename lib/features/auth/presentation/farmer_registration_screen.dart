@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/localization/app_localizations.dart';
 import '../../../core/localization/locale_provider.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/theme_provider.dart';
+import '../../../core/widgets/india_flag_icon.dart';
 import '../data/auth_api_service.dart';
 import '../state/auth_notifier.dart';
 import '../state/auth_state.dart';
@@ -178,6 +180,18 @@ class _FarmerRegistrationScreenState
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            tooltip: isDark ? loc.tr('light_mode') : loc.tr('dark_mode'),
+            onPressed: () =>
+                ref.read(themeModeProvider.notifier).toggleDarkLight(isDark),
+            icon: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              size: 20,
+              color: isDark
+                  ? const Color(0xFFFBBF24)
+                  : const Color(0xFF475569),
+            ),
+          ),
           TextButton.icon(
             onPressed: () {
               setState(() {
@@ -210,11 +224,12 @@ class _FarmerRegistrationScreenState
                 Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 80,
+                      height: 80,
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        color: isDark ? AppColors.darkSurface : AppColors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        color: AppColors.white,
                         border: Border.all(
                           color: isDark
                               ? AppColors.darkBorder
@@ -222,46 +237,46 @@ class _FarmerRegistrationScreenState
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(11),
+                        borderRadius: BorderRadius.circular(14),
                         child: Image.asset(
                           'assets/images/logo.png',
                           fit: BoxFit.contain,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'MARUTHAMANN',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.5,
-                            color: isDark
-                                ? AppColors.darkPrimary
-                                : AppColors.lightPrimary,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Image.asset(
+                            isDark
+                                ? 'assets/images/wordmark-light.png'
+                                : 'assets/images/wordmark-dark.png',
+                            height: 30,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.centerLeft,
                           ),
-                        ),
-                        Text(
-                          loc.tr('app_name'),
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.lightTextPrimary,
+                          const SizedBox(height: 6),
+                          Text(
+                            loc.tr('app_name'),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                              color: isDark
+                                  ? AppColors.darkTextPrimary
+                                  : AppColors.lightTextPrimary,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -468,7 +483,7 @@ class _FarmerRegistrationScreenState
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text('🇮🇳', style: TextStyle(fontSize: 18)),
+                            const IndiaFlagIcon(width: 22, height: 14),
                             const SizedBox(width: 6),
                             Text(
                               '+91',

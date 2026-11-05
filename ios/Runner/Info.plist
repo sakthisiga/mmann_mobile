@@ -4,6 +4,10 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Maruthamann requires camera access to photograph land documents like Patta and Chitta.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Maruthamann requires photo library access to upload document photos.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

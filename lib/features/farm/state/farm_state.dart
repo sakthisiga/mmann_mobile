@@ -16,13 +16,14 @@ class FarmState {
   FarmState copyWith({
     List<Farm>? farmsList,
     Farm? activeFarm,
+    bool clearActiveFarm = false,
     bool? isLoading,
     String? errorMessage,
     bool clearError = false,
   }) {
     return FarmState(
       farmsList: farmsList ?? this.farmsList,
-      activeFarm: activeFarm ?? this.activeFarm,
+      activeFarm: clearActiveFarm ? null : (activeFarm ?? this.activeFarm),
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
@@ -38,7 +39,9 @@ class FarmState {
   double get totalCultivableAcres {
     double total = 0.0;
     for (final f in farmsList) {
-      if (f.enteredArea != null) {
+      if (f.totalAreaSqm != null) {
+        total += f.totalAreaSqm! / 4046.86;
+      } else if (f.enteredArea != null) {
         if (f.enteredUnit == 'cent') {
           total += f.enteredArea! / 100.0;
         } else if (f.enteredUnit == 'guntha') {

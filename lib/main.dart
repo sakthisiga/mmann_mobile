@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/localization/locale_provider.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/theme_provider.dart';
 import 'features/auth/presentation/phone_login_screen.dart';
 import 'features/auth/state/auth_notifier.dart';
 import 'features/farm/presentation/dashboard_screen.dart';
@@ -19,11 +20,18 @@ void main() async {
       (savedLang != null && ['ta', 'te', 'kn', 'ml', 'en'].contains(savedLang))
           ? Locale(savedLang)
           : const Locale('ta');
+  final savedTheme = prefs.getString('selected_theme_mode');
+  final initialThemeMode = switch (savedTheme) {
+    'dark' => ThemeMode.dark,
+    'system' => ThemeMode.system,
+    _ => ThemeMode.light,
+  };
 
   runApp(
     ProviderScope(
       overrides: [
         initialLocaleProvider.overrideWithValue(initialLocale),
+        initialThemeModeProvider.overrideWithValue(initialThemeMode),
       ],
       child: const MaruthamannApp(),
     ),
@@ -36,6 +44,7 @@ class MaruthamannApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLocale = ref.watch(localeProvider);
+    final currentThemeMode = ref.watch(themeModeProvider);
     final authState = ref.watch(authNotifierProvider);
 
     return MaterialApp(
@@ -51,7 +60,7 @@ class MaruthamannApp extends ConsumerWidget {
       ],
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: currentThemeMode,
       home: authState.isAuthenticated
           ? const DashboardScreen()
           : const PhoneLoginScreen(),

@@ -16,7 +16,20 @@ class AuthInterceptor extends QueuedInterceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    // Skip adding auth header for auth endpoints
+    final isAdminPath = options.path.contains('/v1/admin/');
+    final isAdminLogin = options.path.contains(ApiEndpoints.adminLogin);
+
+    if (isAdminPath) {
+      if (!isAdminLogin) {
+        final adminToken = await storageService.getAdminToken();
+        if (adminToken != null && adminToken.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $adminToken';
+        }
+      }
+      return handler.next(options);
+    }
+
+    // Skip adding auth header for farmer public auth endpoints
     final isAuthEndpoint = options.path.contains(ApiEndpoints.requestOtp) ||
         options.path.contains(ApiEndpoints.verifyOtp) ||
         options.path.contains(ApiEndpoints.refreshToken);
@@ -37,6 +50,14 @@ class AuthInterceptor extends QueuedInterceptor {
     ErrorInterceptorHandler handler,
   ) async {
     final response = err.response;
+    final isAdminPath = err.requestOptions.path.contains('/v1/admin/');
+
+    if (isAdminPath) {
+      if (response?.statusCode == 401) {
+        await storageService.clearAdminToken();
+      }
+      return handler.next(err);
+    }
 
     // Check if error is 401 Unauthorized and not already refreshing
     final isRefreshRequest = err.requestOptions.path.contains(ApiEndpoints.refreshToken);
@@ -56,29 +77,30 @@ class AuthInterceptor extends QueuedInterceptor {
             data: {'refreshToken': refreshToken},
           );
 
-          if (refreshResponse.statusCode == 200 && refreshResponse.data != null) {
-            final data = refreshResponse.data as Map<String, dynamic>;
-            final newAccessToken = data['accessToken'] as String?;
-            final newRefreshToken = data['refreshToken'] as String?;
+          if (refreshResponse.statusCode == 200) {
+            final data = refreshResponse.data;
+            final newAccessToken = data['accessToken'] as String;
+            final newRefreshToken = data['refreshToken'] as String;
 
-            if (newAccessToken != null && newRefreshToken != null) {
-              await storageService.saveTokens(
-                accessToken: newAccessToken,
-                refreshToken: newRefreshToken,
-              );
+            // Persist the rotated tokens
+            await storageService.saveTokens(
+              accessToken: newAccessToken,
+              refreshToken: newRefreshToken,
+            );
 
-              // Retry original request with new token
-              final opts = err.requestOptions;
-              opts.headers['Authorization'] = 'Bearer $newAccessToken';
+            // Retry original request with the fresh access token
+            final retryOptions = err.requestOptions;
+            retryOptions.headers['Authorization'] = 'Bearer $newAccessToken';
 
-              final retryResponse = await dio.fetch(opts);
-              return handler.resolve(retryResponse);
-            }
+            final retryResponse = await dio.fetch(retryOptions);
+            return handler.resolve(retryResponse);
           }
-        } catch (_) {
-          // Token refresh failed, session is revoked
+        } catch (refreshErr) {
+          // Token refresh failed completely — clear tokens to force user re-login
           await storageService.clearAll();
         }
+      } else {
+        await storageService.clearAll();
       }
     }
 
