@@ -11,6 +11,7 @@ import '../data/auth_api_service.dart';
 import '../state/auth_notifier.dart';
 import 'farmer_registration_screen.dart';
 import 'verify_otp_screen.dart';
+import '../../farm/presentation/dashboard_screen.dart';
 import '../../admin/presentation/admin_login_screen.dart';
 
 class PhoneLoginScreen extends ConsumerStatefulWidget {
@@ -23,16 +24,22 @@ class PhoneLoginScreen extends ConsumerStatefulWidget {
 
 class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
   late final TextEditingController _phoneController;
+  late final TextEditingController _pinController;
   bool _isPhoneValid = false;
   Timer? _debounceTimer;
   bool _isCheckingMobile = false;
   bool _isMobileNotRegistered = false;
+  bool _hasPin = false;
+  bool _isPinMode = false;
+  bool _obscurePin = true;
 
   @override
   void initState() {
     super.initState();
     _phoneController = TextEditingController(text: widget.initialMobile ?? '');
+    _pinController = TextEditingController();
     _phoneController.addListener(_onPhoneChanged);
+    _pinController.addListener(() => setState(() {}));
     _onPhoneChanged();
   }
 
@@ -51,21 +58,29 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
         if (!mounted) return;
         setState(() => _isCheckingMobile = true);
         try {
-          final exists = await ref.read(authApiServiceProvider).checkMobile(text);
+          final res = await ref.read(authApiServiceProvider).checkMobile(text);
           if (!mounted) return;
           setState(() {
             _isCheckingMobile = false;
-            _isMobileNotRegistered = !exists;
+            _isMobileNotRegistered = !res.exists;
+            _hasPin = res.hasPin;
+            if (res.exists && res.hasPin) {
+              _isPinMode = true;
+            } else {
+              _isPinMode = false;
+            }
           });
         } catch (_) {
           if (mounted) setState(() => _isCheckingMobile = false);
         }
       });
     } else {
-      if (_isMobileNotRegistered || _isCheckingMobile) {
+      if (_isMobileNotRegistered || _isCheckingMobile || _hasPin || _isPinMode) {
         setState(() {
           _isMobileNotRegistered = false;
           _isCheckingMobile = false;
+          _hasPin = false;
+          _isPinMode = false;
         });
       }
     }
@@ -75,7 +90,31 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
   void dispose() {
     _debounceTimer?.cancel();
     _phoneController.dispose();
+    _pinController.dispose();
     super.dispose();
+  }
+
+  Future<void> _handleLoginWithPin() async {
+    final pin = _pinController.text.trim();
+    if (pin.length != 4 && pin.length != 6) return;
+
+    final success = await ref
+        .read(authNotifierProvider.notifier)
+        .loginWithPin(_phoneController.text.trim(), pin);
+
+    if (success && mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  Future<void> _handleForgotPin() async {
+    setState(() {
+      _isPinMode = false;
+    });
+    await _handleSendOtp();
   }
 
   Future<void> _handleSendOtp() async {
@@ -507,34 +546,190 @@ class _PhoneLoginScreenState extends ConsumerState<PhoneLoginScreen> {
                 ),
               ],
 
-              const SizedBox(height: 28),
-
-              // Primary Action: Send OTP Button (for Existing User)
-              ElevatedButton(
-                onPressed: (_isPhoneValid &&
-                        !_isMobileNotRegistered &&
-                        !_isCheckingMobile &&
-                        !authState.isLoading)
-                    ? _handleSendOtp
-                    : null,
-                child: authState.isLoading
-                    ? const SizedBox(
-                        height: 22,
-                        width: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+              // PIN Login Block when PIN mode is active
+              if (_isPinMode) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppColors.darkPrimary.withValues(alpha: 0.08)
+                        : AppColors.lightPrimary.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isDark
+                          ? AppColors.darkPrimary.withValues(alpha: 0.3)
+                          : AppColors.lightPrimary.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(loc.tr('send_otp')),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.arrow_forward_rounded, size: 20),
+                          Text(
+                            loc.tr('enter_pin'),
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: isDark
+                                  ? AppColors.darkTextPrimary
+                                  : AppColors.lightTextPrimary,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: authState.isLoading ? null : _handleForgotPin,
+                            child: Text(
+                              loc.tr('forgot_pin'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? AppColors.darkPrimary
+                                    : AppColors.lightPrimary,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-              ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _pinController,
+                        keyboardType: TextInputType.number,
+                        obscureText: _obscurePin,
+                        maxLength: 6,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 6,
+                          color: isDark
+                              ? AppColors.darkTextPrimary
+                              : AppColors.lightTextPrimary,
+                        ),
+                        decoration: InputDecoration(
+                          counterText: '',
+                          prefixIcon: Icon(
+                            Icons.lock_rounded,
+                            color: isDark
+                                ? AppColors.darkPrimary
+                                : AppColors.lightPrimary,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePin
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.visibility_rounded,
+                              color: isDark
+                                  ? AppColors.darkTextSecondary
+                                  : AppColors.lightTextSecondary,
+                              size: 20,
+                            ),
+                            onPressed: () =>
+                                setState(() => _obscurePin = !_obscurePin),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 28),
+
+              // Action Buttons: PIN or OTP
+              if (_isPinMode) ...[
+                ElevatedButton(
+                  onPressed: (_isPhoneValid &&
+                          !_isMobileNotRegistered &&
+                          !_isCheckingMobile &&
+                          !authState.isLoading &&
+                          (_pinController.text.trim().length == 4 ||
+                              _pinController.text.trim().length == 6))
+                      ? _handleLoginWithPin
+                      : null,
+                  child: authState.isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(loc.tr('login_with_pin')),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_rounded, size: 20),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 10),
+                Center(
+                  child: TextButton(
+                    onPressed: authState.isLoading
+                        ? null
+                        : () => setState(() => _isPinMode = false),
+                    child: Text(
+                      loc.tr('use_otp_instead'),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.lightTextSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                ElevatedButton(
+                  onPressed: (_isPhoneValid &&
+                          !_isMobileNotRegistered &&
+                          !_isCheckingMobile &&
+                          !authState.isLoading)
+                      ? _handleSendOtp
+                      : null,
+                  child: authState.isLoading
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(loc.tr('send_otp')),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.arrow_forward_rounded, size: 20),
+                          ],
+                        ),
+                ),
+                if (_hasPin) ...[
+                  const SizedBox(height: 10),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => setState(() => _isPinMode = true),
+                      child: Text(
+                        '${loc.tr('use_pin_instead')} →',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isDark
+                              ? AppColors.darkPrimary
+                              : AppColors.lightPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
 
               const SizedBox(height: 36),
 

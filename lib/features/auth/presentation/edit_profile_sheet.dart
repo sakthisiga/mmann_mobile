@@ -41,6 +41,14 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
   String _selectedLanguage = 'ta';
   bool _isSubmitting = false;
 
+  bool _showPinSection = false;
+  late final TextEditingController _currentPinController;
+  late final TextEditingController _newPinController;
+  late final TextEditingController _confirmPinController;
+  bool _isUpdatingPin = false;
+  String? _pinErrorMessage;
+  String? _pinSuccessMessage;
+
   @override
   void initState() {
     super.initState();
@@ -64,6 +72,10 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
     _districtController = TextEditingController(text: org?.district ?? '');
     _talukController = TextEditingController(text: org?.taluk ?? '');
     _villageController = TextEditingController(text: org?.village ?? '');
+
+    _currentPinController = TextEditingController();
+    _newPinController = TextEditingController();
+    _confirmPinController = TextEditingController();
 
     _selectedLanguage = ref.read(localeProvider).languageCode;
 
@@ -128,6 +140,9 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
     _districtController.dispose();
     _talukController.dispose();
     _villageController.dispose();
+    _currentPinController.dispose();
+    _newPinController.dispose();
+    _confirmPinController.dispose();
     super.dispose();
   }
 
@@ -176,6 +191,73 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
         ),
       );
     }
+  }
+
+  Future<void> _handleSavePin() async {
+    final newPin = _newPinController.text.trim();
+    final confirmPin = _confirmPinController.text.trim();
+    final currentPin = _currentPinController.text.trim();
+    final loc = AppLocalizations(ref.read(localeProvider));
+
+    if (newPin.length != 4 && newPin.length != 6) {
+      setState(() => _pinErrorMessage = loc.tr('pin_invalid_length'));
+      return;
+    }
+    if (newPin != confirmPin) {
+      setState(() => _pinErrorMessage = loc.tr('pin_mismatch'));
+      return;
+    }
+
+    setState(() {
+      _isUpdatingPin = true;
+      _pinErrorMessage = null;
+      _pinSuccessMessage = null;
+    });
+
+    final success = await ref.read(authNotifierProvider.notifier).setupPin(
+          newPin,
+          currentPin: currentPin.isNotEmpty ? currentPin : null,
+        );
+
+    if (!mounted) return;
+    setState(() {
+      _isUpdatingPin = false;
+      if (success) {
+        _pinSuccessMessage = loc.tr('pin_updated');
+        _showPinSection = false;
+        _currentPinController.clear();
+        _newPinController.clear();
+        _confirmPinController.clear();
+      } else {
+        _pinErrorMessage = 'Failed to update PIN. Please verify current PIN.';
+      }
+    });
+  }
+
+  Future<void> _handleRemovePin() async {
+    final loc = AppLocalizations(ref.read(localeProvider));
+    setState(() {
+      _isUpdatingPin = true;
+      _pinErrorMessage = null;
+      _pinSuccessMessage = null;
+    });
+
+    final success =
+        await ref.read(authNotifierProvider.notifier).removePin();
+
+    if (!mounted) return;
+    setState(() {
+      _isUpdatingPin = false;
+      if (success) {
+        _pinSuccessMessage = loc.tr('pin_removed');
+        _showPinSection = false;
+        _currentPinController.clear();
+        _newPinController.clear();
+        _confirmPinController.clear();
+      } else {
+        _pinErrorMessage = 'Failed to remove PIN.';
+      }
+    });
   }
 
   @override
@@ -667,6 +749,412 @@ class _EditProfileSheetState extends ConsumerState<EditProfileSheet> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 18),
+
+              // PIN Management Section
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 8),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.darkSurface
+                      : AppColors.lightCardBorder.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: isDark
+                        ? AppColors.darkCardBorder
+                        : AppColors.lightCardBorder,
+                    width: 1.2,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? AppColors.darkPrimary.withValues(alpha: 0.25)
+                                      : AppColors.lightPrimary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  Icons.lock_outline_rounded,
+                                  size: 20,
+                                  color: isDark
+                                      ? AppColors.darkPrimary
+                                      : AppColors.lightPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      loc.tr('manage_pin'),
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: isDark
+                                            ? AppColors.darkTextPrimary
+                                            : AppColors.lightTextPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 7,
+                                          height: 7,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: (ref.watch(authNotifierProvider).currentUser?.hasPin == true)
+                                                ? AppColors.lightAccentMint
+                                                : AppColors.lightAccentAmber,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            (ref.watch(authNotifierProvider).currentUser?.hasPin == true)
+                                                ? loc.tr('pin_active')
+                                                : loc.tr('pin_not_set'),
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: (ref.watch(authNotifierProvider).currentUser?.hasPin == true)
+                                                  ? AppColors.lightAccentMint
+                                                  : (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary),
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: () {
+                            setState(() {
+                              _showPinSection = !_showPinSection;
+                              _pinErrorMessage = null;
+                              _pinSuccessMessage = null;
+                            });
+                          },
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: _showPinSection
+                                  ? (isDark ? Colors.grey[700]! : Colors.grey[400]!)
+                                  : (isDark ? AppColors.darkPrimary : AppColors.lightPrimary),
+                              width: 1.2,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          child: Text(
+                            _showPinSection
+                                ? loc.tr('cancel')
+                                : ((ref.watch(authNotifierProvider).currentUser?.hasPin == true)
+                                    ? loc.tr('change_pin')
+                                    : loc.tr('setup_pin')),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: _showPinSection
+                                  ? (isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)
+                                  : (isDark ? AppColors.darkPrimary : AppColors.lightPrimary),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_pinSuccessMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.lightAccentMint.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.lightAccentMint.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle_rounded, size: 16, color: AppColors.lightAccentMint),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _pinSuccessMessage!,
+                                style: const TextStyle(
+                                  color: AppColors.lightAccentMint,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_pinErrorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.lightAccentCoral.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.lightAccentCoral.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.error_outline_rounded, size: 16, color: AppColors.lightAccentCoral),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _pinErrorMessage!,
+                                style: const TextStyle(
+                                  color: AppColors.lightAccentCoral,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (_showPinSection) ...[
+                      const SizedBox(height: 16),
+                      Divider(
+                        height: 1,
+                        color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                      ),
+                      const SizedBox(height: 16),
+                      if (ref.watch(authNotifierProvider).currentUser?.hasPin == true) ...[
+                        Text(
+                          loc.tr('current_pin'),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _currentPinController,
+                          keyboardType: TextInputType.number,
+                          obscureText: true,
+                          maxLength: 6,
+                          style: const TextStyle(
+                            letterSpacing: 4,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          decoration: InputDecoration(
+                            counterText: '',
+                            filled: true,
+                            fillColor: isDark ? AppColors.darkBackground : AppColors.white,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(
+                                color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  loc.tr('new_pin'),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _newPinController,
+                                  keyboardType: TextInputType.number,
+                                  obscureText: true,
+                                  maxLength: 6,
+                                  style: const TextStyle(
+                                    letterSpacing: 4,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                  decoration: InputDecoration(
+                                    counterText: '',
+                                    filled: true,
+                                    fillColor: isDark ? AppColors.darkBackground : AppColors.white,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  loc.tr('confirm_pin'),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? AppColors.darkTextPrimary : AppColors.lightTextPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: _confirmPinController,
+                                  keyboardType: TextInputType.number,
+                                  obscureText: true,
+                                  maxLength: 6,
+                                  style: const TextStyle(
+                                    letterSpacing: 4,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                  decoration: InputDecoration(
+                                    counterText: '',
+                                    filled: true,
+                                    fillColor: isDark ? AppColors.darkBackground : AppColors.white,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                                      ),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: isDark ? AppColors.darkCardBorder : AppColors.lightCardBorder,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (ref.watch(authNotifierProvider).currentUser?.hasPin == true)
+                            TextButton.icon(
+                              onPressed: _isUpdatingPin ? null : _handleRemovePin,
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 16,
+                                color: AppColors.lightAccentCoral,
+                              ),
+                              label: Text(
+                                loc.tr('remove_pin'),
+                                style: const TextStyle(
+                                  color: AppColors.lightAccentCoral,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          ElevatedButton(
+                            onPressed: _isUpdatingPin ? null : _handleSavePin,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isDark ? AppColors.darkPrimary : AppColors.lightPrimary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                            child: _isUpdatingPin
+                                ? const SizedBox(
+                                    height: 16,
+                                    width: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : Text(
+                                    (ref.watch(authNotifierProvider).currentUser?.hasPin == true)
+                                        ? loc.tr('update_pin')
+                                        : loc.tr('save_pin'),
+                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
 

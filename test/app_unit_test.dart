@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mmann_mobile/core/localization/app_localizations.dart';
+import 'package:mmann_mobile/features/auth/data/auth_models.dart';
 import 'package:mmann_mobile/features/farm/data/farm_model.dart';
 import 'package:mmann_mobile/features/farm/state/farm_state.dart';
 
@@ -21,6 +22,10 @@ void main() {
         expect(loc.tr('profile_updated_successfully'), isNotEmpty);
         expect(loc.tr('edit_farm'), isNotEmpty);
         expect(loc.tr('farm_updated_successfully'), isNotEmpty);
+        expect(loc.tr('enter_pin'), isNotEmpty);
+        expect(loc.tr('login_with_pin'), isNotEmpty);
+        expect(loc.tr('forgot_pin'), isNotEmpty);
+        expect(loc.tr('setup_pin'), isNotEmpty);
       }
     });
 
@@ -28,6 +33,9 @@ void main() {
       final loc = AppLocalizations(const Locale('ta'));
       expect(loc.tr('enter_mobile'), 'கைப்பேசி எண் உள்ளிடவும்');
       expect(loc.tr('send_otp'), 'OTP அனுப்பவும்');
+      expect(loc.tr('enter_pin'), '4 அல்லது 6 இலக்க PIN உள்ளிடவும்');
+      expect(loc.tr('login_with_pin'), 'PIN மூலம் உள்நுழைக');
+      expect(loc.tr('forgot_pin'), 'PIN மறந்துவிட்டதா? OTP மூலம் உள்நுழைக');
       expect(loc.tr('step_1_indicator'), 'படி 1 / 2 · கைப்பேசி உள்நுழைவு');
       expect(loc.tr('step_2_indicator'), 'படி 2 / 2 · சரிபார்ப்பு');
       expect(loc.translateUnit('acre'), 'ஏக்கர்');
@@ -38,9 +46,40 @@ void main() {
     test('Telugu localization returns native Telugu text', () {
       final loc = AppLocalizations(const Locale('te'));
       expect(loc.tr('enter_mobile'), 'మొబైల్ నంబర్ నమోదు చేయండి');
+      expect(loc.tr('login_with_pin'), 'PIN తో లాగిన్ అవ్వండి');
+      expect(loc.tr('forgot_pin'), 'PIN మర్చిపోయారా? OTP తో లాగిన్ అవ్వండి');
       expect(loc.tr('step_2_indicator'), 'దశ 2 / 2 · ధృవీకరణ');
       expect(loc.translateUnit('guntha'), 'గుంట');
       expect(loc.translateState('AP'), 'ఆంధ్రప్రదేశ్');
+    });
+  });
+
+  group('PIN & Profile Models Tests', () {
+    test('UserProfile parses hasPin correctly', () {
+      final userWithPin = UserProfile.fromJson({
+        'id': 'u1',
+        'mobile': '+919876543210',
+        'displayName': 'Murugan',
+        'hasPin': true,
+      });
+      expect(userWithPin.hasPin, true);
+
+      final userWithoutPin = UserProfile.fromJson({
+        'id': 'u2',
+        'mobile': '+919876543211',
+      });
+      expect(userWithoutPin.hasPin, false);
+    });
+
+    test('CheckMobileResult parses exists and hasPin correctly', () {
+      final res = CheckMobileResult.fromJson({
+        'exists': true,
+        'mobile': '+919876543210',
+        'hasPin': true,
+      });
+      expect(res.exists, true);
+      expect(res.hasPin, true);
+      expect(res.mobile, '+919876543210');
     });
   });
 

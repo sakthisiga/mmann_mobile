@@ -5,6 +5,7 @@ class UserProfile {
   final String? stateCode;
   final String? language;
   final int? age;
+  final bool hasPin;
 
   UserProfile({
     required this.id,
@@ -13,6 +14,7 @@ class UserProfile {
     this.stateCode,
     this.language,
     this.age,
+    this.hasPin = false,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -23,6 +25,27 @@ class UserProfile {
       stateCode: json['stateCode'] as String?,
       language: (json['preferredLanguage'] ?? json['language']) as String?,
       age: (json['age'] as num?)?.toInt(),
+      hasPin: (json['hasPin'] as bool?) ?? false,
+    );
+  }
+
+  UserProfile copyWith({
+    String? id,
+    String? mobile,
+    String? displayName,
+    String? stateCode,
+    String? language,
+    int? age,
+    bool? hasPin,
+  }) {
+    return UserProfile(
+      id: id ?? this.id,
+      mobile: mobile ?? this.mobile,
+      displayName: displayName ?? this.displayName,
+      stateCode: stateCode ?? this.stateCode,
+      language: language ?? this.language,
+      age: age ?? this.age,
+      hasPin: hasPin ?? this.hasPin,
     );
   }
 
@@ -33,7 +56,28 @@ class UserProfile {
         'stateCode': stateCode,
         'language': language,
         'age': age,
+        'hasPin': hasPin,
       };
+}
+
+class CheckMobileResult {
+  final bool exists;
+  final String mobile;
+  final bool hasPin;
+
+  CheckMobileResult({
+    required this.exists,
+    required this.mobile,
+    this.hasPin = false,
+  });
+
+  factory CheckMobileResult.fromJson(Map<String, dynamic> json) {
+    return CheckMobileResult(
+      exists: (json['exists'] as bool?) ?? false,
+      mobile: json['mobile'] as String? ?? '',
+      hasPin: (json['hasPin'] as bool?) ?? false,
+    );
+  }
 }
 
 class OrgSummary {

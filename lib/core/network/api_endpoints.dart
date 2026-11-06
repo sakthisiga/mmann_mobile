@@ -17,6 +17,8 @@ class ApiEndpoints {
   static const String checkMobile = '/v1/auth/check-mobile';
   static const String requestOtp = '/v1/auth/request-otp';
   static const String verifyOtp = '/v1/auth/verify-otp';
+  static const String loginPin = '/v1/auth/login-pin';
+  static const String pin = '/v1/auth/pin';
   static const String refreshToken = '/v1/auth/refresh';
   static const String me = '/v1/auth/me';
   static const String updateProfile = '/v1/auth/profile';

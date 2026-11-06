@@ -83,12 +83,12 @@ class _FarmerRegistrationScreenState
         });
 
         try {
-          final exists =
+          final res =
               await ref.read(authApiServiceProvider).checkMobile(text);
           if (!mounted) return;
           setState(() {
             _isCheckingMobile = false;
-            _isMobileAlreadyRegistered = exists;
+            _isMobileAlreadyRegistered = res.exists;
           });
         } catch (_) {
           if (mounted) {

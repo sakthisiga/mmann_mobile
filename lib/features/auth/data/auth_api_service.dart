@@ -14,19 +14,64 @@ class AuthApiService {
 
   AuthApiService(this._dio);
 
-  Future<bool> checkMobile(String mobile) async {
+  Future<CheckMobileResult> checkMobile(String mobile) async {
     try {
       final response = await _dio.get(
         ApiEndpoints.checkMobile,
         queryParameters: {'mobile': mobile},
       );
       if (response.statusCode == 200 && response.data is Map) {
-        return (response.data['exists'] as bool?) ?? false;
+        return CheckMobileResult.fromJson(response.data as Map<String, dynamic>);
       }
-      return false;
+      return CheckMobileResult(exists: false, mobile: mobile, hasPin: false);
     } catch (_) {
-      return false;
+      return CheckMobileResult(exists: false, mobile: mobile, hasPin: false);
     }
+  }
+
+  Future<AuthResponse> loginWithPin({
+    required String mobile,
+    required String pin,
+    String? deviceId,
+  }) async {
+    final payload = <String, dynamic>{
+      'mobile': mobile,
+      'pin': pin,
+    };
+    if (deviceId != null) {
+      payload['deviceId'] = deviceId;
+    }
+
+    final response = await _dio.post(
+      ApiEndpoints.loginPin,
+      data: payload,
+    );
+
+    return AuthResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<UserProfile> setupPin({
+    required String pin,
+    String? currentPin,
+  }) async {
+    final payload = <String, dynamic>{
+      'pin': pin,
+    };
+    if (currentPin != null && currentPin.isNotEmpty) {
+      payload['currentPin'] = currentPin;
+    }
+
+    final response = await _dio.post(
+      ApiEndpoints.pin,
+      data: payload,
+    );
+
+    return UserProfile.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<UserProfile> removePin() async {
+    final response = await _dio.delete(ApiEndpoints.pin);
+    return UserProfile.fromJson(response.data as Map<String, dynamic>);
   }
 
   Future<bool> requestOtp({

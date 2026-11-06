@@ -370,6 +370,114 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<bool> loginWithPin(String mobile, String pin, {String? deviceId}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final response = await _apiService.loginWithPin(
+        mobile: mobile,
+        pin: pin,
+        deviceId: deviceId,
+      );
+
+      // Purge prior user's offline database & in-memory farm state completely
+      await DatabaseService.clearAll();
+      _ref.read(farmNotifierProvider.notifier).reset();
+
+      // Save tokens in encrypted secure storage
+      await _storageService.saveTokens(
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+      );
+
+      if (response.user != null && response.org != null) {
+        await _storageService.saveOrgContext(
+          userId: response.user!.id,
+          orgId: response.org!.id,
+        );
+
+        // Cache in offline SQLite
+        await DatabaseService.cacheUserProfile({
+          'id': response.user!.id,
+          'mobile': response.user!.mobile,
+          'display_name': response.user!.displayName,
+          'state_code': response.user!.stateCode,
+          'language': response.user!.language,
+          'age': response.user!.age,
+          'active_org_id': response.org!.id,
+          'role': response.org!.role,
+          'village': response.org!.village,
+          'district': response.org!.district,
+        });
+
+        if (response.user!.language != null) {
+          _applyUserLanguage(response.user!.language);
+        }
+      }
+
+      state = state.copyWith(
+        isLoading: false,
+        isAuthenticated: true,
+        isNewUser: response.newUser,
+        currentUser: response.user,
+        activeOrg: response.org,
+        clearError: true,
+      );
+
+      _ref.read(farmNotifierProvider.notifier).loadFarms();
+      return true;
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map<String, dynamic>
+          ? (e.response?.data['detail'] as String? ?? e.message)
+          : e.message;
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: detail ?? 'PIN verification failed. You can also login with OTP.',
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'An unexpected error occurred during PIN login.',
+      );
+      return false;
+    }
+  }
+
+  Future<bool> setupPin(String pin, {String? currentPin}) async {
+    try {
+      final updatedUser = await _apiService.setupPin(
+        pin: pin,
+        currentPin: currentPin,
+      );
+      state = state.copyWith(currentUser: updatedUser);
+      return true;
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map<String, dynamic>
+          ? (e.response?.data['detail'] as String? ?? e.message)
+          : e.message;
+      state = state.copyWith(errorMessage: detail ?? 'Failed to setup PIN.');
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> removePin() async {
+    try {
+      final updatedUser = await _apiService.removePin();
+      state = state.copyWith(currentUser: updatedUser);
+      return true;
+    } on DioException catch (e) {
+      final detail = e.response?.data is Map<String, dynamic>
+          ? (e.response?.data['detail'] as String? ?? e.message)
+          : e.message;
+      state = state.copyWith(errorMessage: detail ?? 'Failed to remove PIN.');
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void completeOnboarding() {
     state = state.copyWith(isNewUser: false);
   }
